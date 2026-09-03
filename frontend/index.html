@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Negotiator — An Autonomous B2B Wholesale Negotiation Platform</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Nastaliq+Urdu:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<!-- ═══════════ LOGIN PAGE ═══════════ -->
+<div id="loginPage" class="login-page">
+    <div class="login-card">
+        <h2>AI Negotiator</h2>
+        <p>An Autonomous B2B Wholesale Negotiation Platform</p>
+
+        <form id="loginForm" onsubmit="handleLogin(event)">
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="loginEmail" class="form-control" placeholder="wholesaler@example.com" required>
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="loginPassword" class="form-control" placeholder="••••••••" required>
+            </div>
+            <button type="submit" class="btn btn-primary btn-lg">Sign In</button>
+            <div class="login-toggle">Don't have an account? <a onclick="toggleAuthForm()">Register</a></div>
+        </form>
+
+        <form id="registerForm" class="hidden" onsubmit="handleRegister(event)">
+            <div class="form-group">
+                <label>Full Name</label>
+                <input type="text" id="regName" class="form-control" placeholder="Ahmed Khan" required>
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="regEmail" class="form-control" placeholder="ahmed@wholesale.pk" required>
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="regPassword" class="form-control" placeholder="min 6 characters" required minlength="6">
+            </div>
+            <div class="form-group">
+                <label>Company Name</label>
+                <input type="text" id="regOrg" class="form-control" placeholder="Khan Wholesale Traders" required>
+            </div>
+            <button type="submit" class="btn btn-primary btn-lg">Create Account</button>
+            <div class="login-toggle">Already registered? <a onclick="toggleAuthForm()">Sign In</a></div>
+        </form>
+    </div>
+</div>
+
+<!-- ═══════════ APP LAYOUT ═══════════ -->
+<div id="appLayout" class="app-layout hidden">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <h1>AI Negotiator</h1>
+            <span>Wholesale Platform</span>
+        </div>
+        <nav class="sidebar-nav">
+            <div class="nav-item active" data-page="dashboard" onclick="navigate('dashboard')">
+                <span class="icon">&#9633;</span> <span class="nav-label">Dashboard <small class="nav-urdu">ڈیش بورڈ</small></span>
+            </div>
+            <div class="nav-item" data-page="negotiations" onclick="navigate('negotiations')">
+                <span class="icon">&#9878;</span> <span class="nav-label">Negotiations <small class="nav-urdu">مول بھاؤ</small></span>
+            </div>
+            <div class="nav-item" data-page="suppliers" onclick="navigate('suppliers')">
+                <span class="icon">&#9734;</span> <span class="nav-label">Suppliers <small class="nav-urdu">سپلائرز</small></span>
+            </div>
+            <div class="nav-item" data-page="contracts" onclick="navigate('contracts')">
+                <span class="icon">&#9745;</span> <span class="nav-label">Contracts <small class="nav-urdu">معاہدات</small></span>
+            </div>
+            <div class="nav-item" data-page="batch" onclick="navigate('batch')">
+                <span class="icon">&#9889;</span> <span class="nav-label">Batch Negotiate <small class="nav-urdu">بیچ مذاکرات</small></span>
+            </div>
+        </nav>
+        <div class="sidebar-footer">
+            <div id="userName" style="font-weight:600;color:var(--text);margin-bottom:4px">User</div>
+            <div id="userOrg" style="font-size:11px">Org</div>
+            <a onclick="API.logout()" style="color:var(--primary);cursor:pointer;font-size:12px;margin-top:8px;display:block">Logout / <span style="font-family:'Noto Nastaliq Urdu',serif;font-size:11px">لاگ آؤٹ</span></a>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+
+        <!-- ─── Dashboard Page ─── -->
+        <section id="page-dashboard" class="page-section">
+            <div class="page-header">
+                <h2>Dashboard <small class="heading-urdu">ڈیش بورڈ</small></h2>
+                <div class="header-actions">
+                    <button class="btn btn-primary" onclick="openCreateModal()">+ New Negotiation</button>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="label">Active Negotiations</div>
+                    <div class="value info" id="statActive">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Completed Deals</div>
+                    <div class="value success" id="statCompleted">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Terminated</div>
+                    <div class="value danger" id="statTerminated">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Total Negotiated Value</div>
+                    <div class="value primary" id="statValue">0 PKR</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Avg. Rounds</div>
+                    <div class="value" id="statAvgRounds">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Agreement Rate</div>
+                    <div class="value success" id="statAgreementRate">0%</div>
+                </div>
+            </div>
+
+            <!-- Quick Stats: Architecture Info -->
+            <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:24px">
+                <h4 style="margin-bottom:16px;color:var(--primary)">System Architecture</h4>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;font-size:13px">
+                    <div><span class="text-muted">AI Engine:</span> Alibaba Qwen</div>
+                    <div><span class="text-muted">Backend:</span> FastAPI</div>
+                    <div><span class="text-muted">Database:</span> PostgreSQL</div>
+                    <div><span class="text-muted">Cache:</span> Tair Redis</div>
+                    <div><span class="text-muted">Messaging:</span> WhatsApp</div>
+                    <div><span class="text-muted">Marketplace:</span> Alibaba.com</div>
+                    <div><span class="text-muted">Agents:</span> LangGraph</div>
+                    <div><span class="text-muted">Security:</span> KMS + RAM</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ─── Negotiations List ─── -->
+        <section id="page-negotiations" class="page-section hidden">
+            <div class="page-header">
+                <h2>Negotiations <small class="heading-urdu">مول بھاؤ</small></h2>
+                <button class="btn btn-primary" onclick="openCreateModal()">+ New Negotiation</button>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Commodity</th>
+                            <th>Quantity</th>
+                            <th>Final Price</th>
+                            <th>Round</th>
+                            <th>Status</th>
+                            <th>Created</th>
+                        </tr>
+                    </thead>
+                    <tbody id="negotiationsTable">
+                        <tr><td colspan="6" class="text-muted" style="text-align:center;padding:40px">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ─── Negotiation Detail ─── -->
+        <section id="page-negotiation-detail" class="page-section hidden">
+            <div class="page-header">
+                <h2 id="detail_commodity">Negotiation Detail</h2>
+                <div id="detail_status"></div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="label">Quantity</div>
+                    <div class="value" id="detail_quantity">—</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Rounds</div>
+                    <div class="value" id="detail_rounds">—</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Final Price</div>
+                    <div class="value success" id="detail_final">Pending</div>
+                </div>
+                <div class="stat-card" id="detail_mandi_card">
+                    <div class="label" data-i18n="mandi_rate">Mandi Rate (Market)</div>
+                    <div class="value warning" id="detail_mandi_rate">—</div>
+                </div>
+            </div>
+
+            <!-- Mandi Comparison Bar (always visible when mandi_rate exists) -->
+            <div id="mandiBar" class="hidden" style="background:rgba(255,214,0,0.08);border-left:4px solid var(--warning);border-radius:4px;padding:16px 20px;margin-bottom:24px">
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+                    <div>
+                        <strong style="color:var(--warning);font-size:14px">📊 <span data-i18n="mandi_comparison">Mandi Rate Comparison</span></strong>
+                        <div style="display:flex;gap:24px;margin-top:8px;font-size:13px">
+                            <div><span class="text-muted" data-i18n="mandi_rate">Mandi Rate:</span> <strong id="bar_mandi_rate">—</strong></div>
+                            <div><span class="text-muted" data-i18n="deal_price">Deal Price:</span> <strong id="bar_deal_price">—</strong></div>
+                            <div id="bar_mandi_savings"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chart -->
+            <div class="chart-container">
+                <h4>Negotiation Price Chart</h4>
+                <canvas id="negotiationChart"></canvas>
+            </div>
+
+            <!-- Timeline -->
+            <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:24px">
+                <h4 style="margin-bottom:16px">Offer Timeline</h4>
+                <div id="negotiationTimeline" class="timeline"></div>
+            </div>
+
+<!-- ═══════ SELLER NOTIFICATION (inline, not modal) ═══════ -->
+<div id="sellerNotification" class="hidden" style="background:linear-gradient(135deg,rgba(0,150,255,0.1),rgba(0,100,200,0.05));border:1px solid rgba(0,150,255,0.25);border-radius:14px;padding:24px;margin:20px 0;text-align:center">
+    <h3 style="color:#60a5fa;margin-bottom:6px">📨 Seller Notification Sent</h3>
+    <p style="color:#a1a1aa;font-size:14px;margin-bottom:16px">A WhatsApp/SMS notification has been sent to the seller with a unique approval link.</p>
+
+    <div style="background:#0f1117;border:1px solid #2d3348;border-radius:10px;padding:16px;margin-bottom:16px;text-align:left">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#71717a;margin-bottom:6px">Seller Contact</div>
+        <div style="font-size:15px;font-weight:600;color:#e4e4e7" id="seller_notif_contact">—</div>
+    </div>
+
+    <div style="background:#0f1117;border:1px solid #2d3348;border-radius:10px;padding:16px;margin-bottom:16px;text-align:left">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#71717a;margin-bottom:6px">Seller Approval Link</div>
+        <div style="display:flex;gap:8px;align-items:center">
+            <input type="text" id="seller_notif_link" readonly
+                style="flex:1;background:#1a1f2e;border:1px solid #2d3348;border-radius:6px;padding:8px 12px;color:#60a5fa;font-size:12px;font-family:monospace;outline:none">
+            <button onclick="copySellerLink()" id="copyLinkBtn"
+                style="background:#22c55e;color:white;border:none;border-radius:6px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">
+                📋 Copy
+            </button>
+        </div>
+    </div>
+
+    <div style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.15);border-radius:10px;padding:12px;font-size:12px;color:#a1a1aa">
+        ⏳ Waiting for seller to respond. This page will auto-refresh.
+    </div>
+</div>
+
+            <!-- Contract -->
+            <div id="contractSection" class="hidden" style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:24px">
+                <h4 style="margin-bottom:16px;color:var(--success)">&#10003; <span data-i18n="contract_generated">Contract Generated</span></h4>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:20px">
+                    <div>
+                        <div class="text-muted" style="font-size:12px" data-i18n="total_value">Total Value</div>
+                        <div style="font-size:24px;font-weight:700;color:var(--success)" id="contract_value">—</div>
+                    </div>
+                    <div>
+                        <div class="text-muted" style="font-size:12px" data-i18n="unit_price">Unit Price</div>
+                        <div style="font-size:18px;font-weight:600" id="contract_price">—</div>
+                    </div>
+                    <div>
+                        <div class="text-muted" style="font-size:12px">Document Hash</div>
+                        <div style="font-size:12px;font-family:monospace;color:var(--text-muted)" id="contract_hash">—</div>
+                    </div>
+                </div>
+                <!-- Mandi comparison -->
+                <div id="mandiComparison" class="hidden" style="background:rgba(255,214,0,0.08);border-left:4px solid var(--warning);border-radius:4px;padding:12px 16px;margin-bottom:20px">
+                    <strong style="color:var(--warning)" data-i18n="mandi_comparison">📊 Mandi Rate Comparison</strong>
+                    <div style="display:flex;gap:24px;margin-top:8px;font-size:13px">
+                        <div><span class="text-muted" data-i18n="mandi_rate">Mandi Rate:</span> <strong id="mandi_rate_display">—</strong></div>
+                        <div><span class="text-muted" data-i18n="deal_price">Deal Price:</span> <strong id="deal_price_display">—</strong></div>
+                        <div id="mandi_savings"></div>
+                    </div>
+                </div>
+                <div style="display:flex;gap:12px;flex-wrap:wrap">
+                    <button id="btnViewContract" onclick="viewContract()" style="padding:10px 24px;background:var(--primary);color:#fff;border:none;border-radius:var(--radius-sm);font-weight:600;cursor:pointer;font-size:14px;display:inline-flex;align-items:center;gap:6px">
+                        &#128196; View Full Contract
+                    </button>
+                    <button id="btnPrintContract" onclick="printContract()" style="padding:10px 24px;background:var(--success);color:#fff;border:none;border-radius:var(--radius-sm);font-weight:600;cursor:pointer;font-size:14px;display:inline-flex;align-items:center;gap:6px">
+                        &#128424; Print / Download PDF
+                    </button>
+                    <button id="btnDownloadContract" onclick="downloadContractHTML()" style="padding:10px 24px;background:#6c5ce7;color:#fff;border:none;border-radius:var(--radius-sm);font-weight:600;cursor:pointer;font-size:14px;display:inline-flex;align-items:center;gap:6px">
+                        &#8595; Download HTML
+                    </button>
+                    <button id="btnWhatsAppContact" onclick="sendWhatsAppNotification()" style="padding:10px 24px;background:#25D366;color:#fff;border:none;border-radius:var(--radius-sm);font-weight:600;cursor:pointer;font-size:14px;display:inline-flex;align-items:center;gap:6px">
+                        &#128241; Contact Seller on WhatsApp
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ─── Suppliers ─── -->
+        <section id="page-suppliers" class="page-section hidden">
+            <div class="page-header">
+                <h2>Supplier Discovery <small class="heading-urdu">سپلائرز کی تلاش</small></h2>
+                <span class="text-muted" style="font-size:13px">Powered by Alibaba.com Open Platform</span>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Supplier</th>
+                            <th>Commodity</th>
+                            <th>Business Type</th>
+                            <th>City</th>
+                            <th>Price</th>
+                            <th>WhatsApp</th>
+                            <th>MOQ</th>
+                            <th>Rating</th>
+                        </tr>
+                    </thead>
+                    <tbody id="suppliersTable">
+                        <tr><td colspan="8" class="text-muted" style="text-align:center;padding:40px">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ─── Contracts ─── -->
+        <section id="page-contracts" class="page-section hidden">
+            <div class="page-header">
+                <h2>Contracts <small class="heading-urdu">معاہدات</small></h2>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Commodity</th>
+                            <th>Quantity</th>
+                            <th>Unit Price</th>
+                            <th>Total Value</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="contractsTable">
+                        <tr><td colspan="7" class="text-muted" style="text-align:center;padding:40px">No contracts yet</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+        <!-- ─── Batch Negotiate ─── -->
+        <section id="page-batch" class="page-section hidden">
+            <div class="page-header">
+                <h2>Batch Negotiations <small class="heading-urdu">بیچ مذاکرات</small></h2>
+                <button class="btn btn-primary" onclick="openBatchModal()">⚡ New Batch Negotiation</button>
+            </div>
+            <div style="background:rgba(33,150,243,0.08);border-left:4px solid var(--primary);border-radius:var(--radius-sm);padding:12px 16px;margin-bottom:20px;font-size:13px">
+                Negotiate the <strong>same commodity</strong> with multiple sellers simultaneously. The AI runs all negotiations in parallel and ranks results so you can pick the best deal.
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Commodity</th>
+                            <th>Quantity</th>
+                            <th>Sellers</th>
+                            <th>Best Price</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="batchTable">
+                        <tr><td colspan="7" class="text-muted" style="text-align:center;padding:40px">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ─── Batch Detail ─── -->
+        <section id="page-batch-detail" class="page-section hidden">
+            <div class="page-header">
+                <h2 id="batch_detail_title">Batch Results</h2>
+                <button class="btn btn-outline" onclick="navigate('batch')">← Back to Batches</button>
+            </div>
+
+            <div id="batch_summary" style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:24px;display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px">
+                <!-- filled by JS -->
+            </div>
+
+            <h4 style="margin-bottom:14px;color:var(--primary)">&#127942; Ranked Results</h4>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Seller</th>
+                            <th>Final Price</th>
+                            <th>Total Value</th>
+                            <th>Rounds</th>
+                            <th>Status</th>
+                            <th>Savings</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="batchResultsTable">
+                        <tr><td colspan="8" class="text-muted" style="text-align:center;padding:40px">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+</div>
+
+<!-- ═══════════ CREATE NEGOTIATION MODAL ═══════════ -->
+<div id="createModal" class="modal-overlay">
+    <div class="modal">
+        <h3>Create Negotiation</h3>
+
+        <!-- Mode tabs -->
+        <div style="display:flex;gap:0;margin-bottom:24px;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">
+            <button id="tabSingle" onclick="switchModalTab('single')" type="button"
+                style="flex:1;padding:10px 0;border:none;background:var(--primary);color:#fff;font-weight:600;font-size:13px;cursor:pointer">
+                &#128100; Single Seller
+            </button>
+            <button id="tabBatch" onclick="switchModalTab('batch')" type="button"
+                style="flex:1;padding:10px 0;border:none;background:var(--bg-card);color:var(--text-muted);font-weight:600;font-size:13px;cursor:pointer">
+                &#9889; Multiple Sellers (Batch)
+            </button>
+        </div>
+
+        <!-- ─── SINGLE SELLER FORM ─── -->
+        <form id="formSingle" onsubmit="handleCreateNegotiation(event)">
+            <div class="form-group">
+                <label>Commodity</label>
+                <select id="neg_commodity" class="form-control" required>
+                    <option value="Basmati Rice">Basmati Rice</option>
+                    <option value="Wheat">Wheat</option>
+                    <option value="Sugar">Sugar</option>
+                    <option value="Cotton">Cotton</option>
+                    <option value="Spices">Spices</option>
+                    <option value="Dry Fruits">Dry Fruits</option>
+                    <option value="Maize">Maize</option>
+                    <option value="Cooking Oil">Cooking Oil</option>
+                </select>
+                <div id="mandi_notice_single" class="mandi-notice">
+                    <span class="mandi-notice-icon">&#128200;</span>
+                    <span class="mandi-notice-text" id="mandi_notice_single_text">Select a commodity to see current mandi (market) rate</span>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Quantity</label>
+                    <input type="number" id="neg_quantity" class="form-control" value="10000" required min="1">
+                </div>
+                <div class="form-group">
+                    <label>Unit</label>
+                    <select id="neg_unit" class="form-control">
+                        <option value="kg">kg</option>
+                        <option value="ton">ton</option>
+                        <option value="mann">Mann (≈40 kg)</option>
+                        <option value="bori">Bori / Bag (≈50 kg)</option>
+                        <option value="quintal">Quintal (100 kg)</option>
+                        <option value="truckload">Truckload</option>
+                        <option value="bag">bag</option>
+                        <option value="carton">carton</option>
+                        <option value="piece">piece</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Currency</label>
+                <select id="neg_currency" class="form-control">
+                    <option value="PKR" selected>PKR — Pakistani Rupee</option>
+                    <option value="USD">USD — US Dollar</option>
+                    <option value="CNY">CNY — Chinese Yuan</option>
+                    <option value="EUR">EUR — Euro</option>
+                    <option value="AED">AED — UAE Dirham</option>
+                    <option value="SAR">SAR — Saudi Riyal</option>
+                </select>
+            </div>
+
+            <h4 style="margin:20px 0 12px;color:var(--info)">&#9654; Buyer Configuration</h4>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Starting Price (PKR)</label>
+                    <input type="number" id="neg_buyer_start" class="form-control" value="210" required min="1" step="0.01">
+                </div>
+                <div class="form-group">
+                    <label>Max Price / Reservation (PKR)</label>
+                    <input type="number" id="neg_buyer_max" class="form-control" value="260" required min="1" step="0.01">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Delivery Days</label>
+                    <input type="number" id="neg_buyer_delivery" class="form-control" value="14" min="1">
+                </div>
+                <div class="form-group">
+                    <label>Strategy</label>
+                    <select id="neg_buyer_strategy" class="form-control">
+                        <option value="BALANCED">Balanced</option>
+                        <option value="STUBBORN">Stubborn</option>
+                        <option value="CONCEDING">Conceding</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Payment Terms</label>
+                    <select id="neg_buyer_payment" class="form-control">
+                        <option value="30_DAYS">30 Days</option>
+                        <option value="15_DAYS">15 Days</option>
+                        <option value="60_DAYS">60 Days</option>
+                        <option value="IMMEDIATE">Immediate</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Max Rounds</label>
+                    <input type="number" id="neg_max_rounds" class="form-control" value="10" min="2" max="50">
+                </div>
+            </div>
+
+            <h4 style="margin:20px 0 12px;color:var(--primary)">&#9654; <span data-i18n="seller_info">Seller Information</span></h4>
+            <div class="form-group">
+                <label>Select Supplier from Directory</label>
+                <select id="neg_supplier_select" class="form-control" onchange="onSupplierSelected(this.value)">
+                    <option value="">— Choose a supplier (auto-fills name, phone, price) —</option>
+                </select>
+                <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Suppliers are loaded from your database. Select one or type manually below.</div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label data-i18n="seller_name">Seller Name / Company</label>
+                    <input type="text" id="neg_seller_name" class="form-control" placeholder="e.g. Al-Rehman Traders">
+                </div>
+                <div class="form-group">
+                    <label data-i18n="seller_whatsapp">Seller WhatsApp Number</label>
+                    <input type="tel" id="neg_seller_whatsapp" class="form-control" placeholder="+923001234567" pattern="\+[0-9]{10,15}">
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Auto-filled from supplier directory</div>
+                </div>
+            </div>
+            <div id="neg_supplier_info_bar" style="display:none;background:rgba(33,150,243,0.08);border-left:3px solid var(--info);padding:8px 12px;border-radius:4px;font-size:12px;margin-bottom:12px">
+                <span id="neg_supplier_info_text"></span>
+            </div>
+            <p style="font-size:12px;color:var(--text-muted);margin-bottom:14px;background:rgba(255,193,7,0.1);border-left:3px solid var(--warning);padding:8px 12px;border-radius:4px">
+                <span data-i18n="seller_params_hint">Optionally set the seller's expected pricing. Leave blank for AI auto-estimation.</span>
+            </p>
+            <div class="form-row">
+                <div class="form-group">
+                    <label data-i18n="seller_starting_price">Seller's Expected Starting Price (optional)</label>
+                    <input type="number" id="neg_seller_start" class="form-control" placeholder="Auto-estimated" min="0.01" step="0.01">
+                </div>
+                <div class="form-group">
+                    <label data-i18n="seller_min_price">Seller's Minimum Price / Reservation (optional)</label>
+                    <input type="number" id="neg_seller_min" class="form-control" placeholder="Auto-estimated" min="0.01" step="0.01">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label data-i18n="mandi_rate_label">Current Mandi Rate (PKR/kg) — for comparison</label>
+                    <input type="number" id="neg_mandi_rate" class="form-control" placeholder="Auto-fetched" min="0" step="0.01">
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:4px" id="mandi_hint">Leave blank to auto-fetch from market data</div>
+                </div>
+                <div class="form-group">
+                    <label data-i18n="approval_mode_label">Approval Mode</label>
+                    <select id="neg_approval_mode" class="form-control">
+                        <option value="HUMAN_APPROVAL">Human Approval Required</option>
+                        <option value="AUTO">Auto-agree (AI decides)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div style="display:flex;gap:12px;margin-top:24px">
+                <button type="submit" class="btn btn-primary btn-lg" style="flex:1">Launch AI Negotiation</button>
+                <button type="button" class="btn btn-outline btn-lg" onclick="closeCreateModal()">Cancel</button>
+            </div>
+        </form>
+
+        <!-- ─── BATCH FORM ─── -->
+        <form id="formBatch" class="hidden" onsubmit="handleCreateBatch(event)">
+            <div class="form-group">
+                <label>Commodity</label>
+                <select id="batch_commodity" class="form-control" required>
+                    <option value="Basmati Rice">Basmati Rice</option>
+                    <option value="Wheat">Wheat</option>
+                    <option value="Sugar">Sugar</option>
+                    <option value="Cotton">Cotton</option>
+                    <option value="Spices">Spices</option>
+                    <option value="Dry Fruits">Dry Fruits</option>
+                    <option value="Maize">Maize</option>
+                    <option value="Cooking Oil">Cooking Oil</option>
+                </select>
+                <div id="mandi_notice_batch" class="mandi-notice">
+                    <span class="mandi-notice-icon">&#128200;</span>
+                    <span class="mandi-notice-text" id="mandi_notice_batch_text">Select a commodity to see current mandi (market) rate</span>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Quantity</label>
+                    <input type="number" id="batch_quantity" class="form-control" value="10000" required min="1">
+                </div>
+                <div class="form-group">
+                    <label>Unit</label>
+                    <select id="batch_unit" class="form-control">
+                        <option value="kg">kg</option>
+                        <option value="ton">ton</option>
+                        <option value="mann">Mann (≈40 kg)</option>
+                        <option value="bori">Bori / Bag (≈50 kg)</option>
+                        <option value="quintal">Quintal (100 kg)</option>
+                        <option value="truckload">Truckload</option>
+                        <option value="bag">bag</option>
+                        <option value="carton">carton</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Currency</label>
+                <select id="batch_currency" class="form-control">
+                    <option value="PKR" selected>PKR — Pakistani Rupee</option>
+                    <option value="USD">USD — US Dollar</option>
+                    <option value="CNY">CNY — Chinese Yuan</option>
+                    <option value="EUR">EUR — Euro</option>
+                    <option value="AED">AED — UAE Dirham</option>
+                    <option value="SAR">SAR — Saudi Riyal</option>
+                </select>
+            </div>
+
+            <h4 style="margin:20px 0 12px;color:var(--info)">&#9654; Buyer Configuration</h4>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Starting Price</label>
+                    <input type="number" id="batch_buyer_start" class="form-control" value="210" required min="1" step="0.01">
+                </div>
+                <div class="form-group">
+                    <label>Max / Reservation Price</label>
+                    <input type="number" id="batch_buyer_max" class="form-control" value="260" required min="1" step="0.01">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Delivery Days</label>
+                    <input type="number" id="batch_buyer_delivery" class="form-control" value="14" min="1">
+                </div>
+                <div class="form-group">
+                    <label>Strategy</label>
+                    <select id="batch_buyer_strategy" class="form-control">
+                        <option value="BALANCED">Balanced</option>
+                        <option value="STUBBORN">Stubborn</option>
+                        <option value="CONCEDING">Conceding</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Payment Terms</label>
+                    <select id="batch_buyer_payment" class="form-control">
+                        <option value="30_DAYS">30 Days</option>
+                        <option value="15_DAYS">15 Days</option>
+                        <option value="60_DAYS">60 Days</option>
+                        <option value="IMMEDIATE">Immediate</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Max Rounds</label>
+                    <input type="number" id="batch_max_rounds" class="form-control" value="10" min="2" max="50">
+                </div>
+            </div>
+
+            <h4 style="margin:20px 0 12px;color:var(--primary)">&#9654; Sellers to Negotiate With</h4>
+            <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;background:rgba(33,150,243,0.08);border-left:3px solid var(--primary);padding:8px 12px;border-radius:4px">
+                Add 2–10 sellers. The AI will negotiate with all of them simultaneously and rank the results.
+            </p>
+            <div id="sellerRowsContainer">
+                <!-- Seller rows injected by JS -->
+            </div>
+            <button type="button" onclick="addSellerRow()" class="btn btn-outline" style="width:100%;margin-top:8px;font-size:13px">
+                + Add Another Seller
+            </button>
+
+            <div style="display:flex;gap:12px;margin-top:24px">
+                <button type="submit" class="btn btn-primary btn-lg" style="flex:1">&#9889; Launch Batch Negotiation</button>
+                <button type="button" class="btn btn-outline btn-lg" onclick="closeCreateModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ═══════════ BUYER APPROVAL MODAL ═══════════ -->
+<div id="approvalModal" class="modal-overlay">
+    <div class="modal" style="max-width:520px;text-align:center">
+        <h3 style="color:var(--warning)">⏸ Buyer Approval Needed</h3>
+        <p style="margin:12px 0 20px;color:var(--text-muted);font-size:14px">
+            The AI has found a deal. Review the details below and decide.
+        </p>
+        <div style="background:var(--bg-input);border-radius:var(--radius);padding:20px;margin-bottom:20px">
+            <div style="font-size:14px;color:var(--text-muted);margin-bottom:8px">Proposed Deal</div>
+            <div style="font-size:36px;font-weight:700;color:var(--success)" id="approval_price">—</div>
+            <div style="font-size:13px;color:var(--text-muted);margin-top:4px" id="approval_commodity">—</div>
+        </div>
+        <div id="approval_mandi_info" class="hidden" style="background:rgba(255,214,0,0.08);border-radius:8px;padding:12px;margin-bottom:20px;font-size:13px">
+            <span data-i18n="mandi_comparison">Mandi Rate:</span> <strong id="approval_mandi_rate">—</strong>
+            <span id="approval_mandi_diff" style="margin-left:12px"></span>
+        </div>
+        <div style="display:flex;gap:12px">
+            <button onclick="approveCurrentDeal()" class="btn btn-success btn-lg" style="flex:1">✅ Buyer Approves</button>
+            <button onclick="rejectCurrentDeal()" class="btn btn-danger btn-lg" style="flex:1">❌ Buyer Rejects</button>
+        </div>
+    </div>
+</div>
+
+
+<script src="/static/js/api.js"></script>
+<script src="/static/js/dashboard.js"></script>
+</body>
+</html>

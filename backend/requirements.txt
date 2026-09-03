@@ -1,0 +1,23 @@
+# Core
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+
+# Database
+sqlalchemy
+alembic
+aiosqlite
+
+# AI / Agents
+openai
+
+# Security
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
+
+# Utilities
+python-dotenv
+httpx
+jinja2

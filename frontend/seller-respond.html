@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deal Approval — AI Negotiator</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: #0f1117;
+            color: #e4e4e7;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            max-width: 540px;
+            width: 100%;
+        }
+        .brand {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+        .brand h1 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #a1a1aa;
+        }
+        .brand span { color: #60a5fa; }
+        .card {
+            background: #1a1f2e;
+            border: 1px solid #2d3348;
+            border-radius: 16px;
+            padding: 32px;
+            text-align: center;
+        }
+        .card h2 {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: #60a5fa;
+        }
+        .card .subtitle {
+            font-size: 14px;
+            color: #a1a1aa;
+            margin-bottom: 24px;
+        }
+        .price-box {
+            background: #0f1117;
+            border: 1px solid #2d3348;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+        .price-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #71717a;
+            margin-bottom: 6px;
+        }
+        .price-value {
+            font-size: 42px;
+            font-weight: 800;
+            color: #60a5fa;
+        }
+        .price-unit { font-size: 16px; color: #a1a1aa; font-weight: 400; }
+        .details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .detail-item {
+            background: #0f1117;
+            border: 1px solid #2d3348;
+            border-radius: 8px;
+            padding: 12px;
+            text-align: left;
+        }
+        .detail-item .label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #71717a;
+            margin-bottom: 4px;
+        }
+        .detail-item .value {
+            font-size: 15px;
+            font-weight: 600;
+            color: #e4e4e7;
+        }
+        .mandi-info {
+            background: rgba(0, 150, 255, 0.08);
+            border: 1px solid rgba(0, 150, 255, 0.2);
+            border-radius: 10px;
+            padding: 14px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            color: #a1a1aa;
+        }
+        .mandi-info strong { color: #60a5fa; }
+        .mandi-diff-good { color: #22c55e; font-weight: 700; }
+        .mandi-diff-bad { color: #ef4444; font-weight: 700; }
+        .buyer-info {
+            background: rgba(34, 197, 94, 0.06);
+            border: 1px solid rgba(34, 197, 94, 0.15);
+            border-radius: 10px;
+            padding: 14px;
+            margin-bottom: 24px;
+            font-size: 13px;
+            color: #a1a1aa;
+        }
+        .buyer-info strong { color: #22c55e; }
+        .btn-group {
+            display: flex;
+            gap: 12px;
+        }
+        .btn {
+            flex: 1;
+            padding: 16px 20px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn:hover { transform: translateY(-1px); }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .btn-accept {
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            color: white;
+        }
+        .btn-accept:hover { background: linear-gradient(135deg, #16a34a, #15803d); }
+        .btn-decline {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+        }
+        .btn-decline:hover { background: linear-gradient(135deg, #dc2626, #b91c1c); }
+        .result-card {
+            background: #1a1f2e;
+            border: 1px solid #2d3348;
+            border-radius: 16px;
+            padding: 48px 32px;
+            text-align: center;
+        }
+        .result-card .icon { font-size: 64px; margin-bottom: 16px; }
+        .result-card h2 { font-size: 24px; margin-bottom: 8px; }
+        .result-card p { color: #a1a1aa; font-size: 15px; }
+        .result-card.success h2 { color: #22c55e; }
+        .result-card.error h2 { color: #ef4444; }
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+            color: #a1a1aa;
+        }
+        .loading .spinner {
+            width: 40px; height: 40px;
+            border: 3px solid #2d3348;
+            border-top-color: #60a5fa;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 16px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="brand">
+            <h1>AI <span>Negotiator</span> — Deal Approval</h1>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loadingState" class="loading">
+            <div class="spinner"></div>
+            <p>Loading deal details...</p>
+        </div>
+
+        <!-- Error State -->
+        <div id="errorState" class="result-card error hidden">
+            <div class="icon">&#x26A0;&#xFE0F;</div>
+            <h2>Link Invalid or Expired</h2>
+            <p id="errorMessage">This approval link is no longer valid.</p>
+        </div>
+
+        <!-- Already Resolved State -->
+        <div id="resolvedState" class="result-card hidden">
+            <div class="icon">&#x2139;&#xFE0F;</div>
+            <h2>Already Processed</h2>
+            <p id="resolvedMessage">This deal has already been processed.</p>
+        </div>
+
+        <!-- Success State -->
+        <div id="successState" class="result-card success hidden">
+            <div class="icon">&#x2705;</div>
+            <h2 id="successTitle">Deal Accepted!</h2>
+            <p id="successMessage">A contract has been generated for both parties.</p>
+        </div>
+
+        <!-- Main Approval Card -->
+        <div id="approvalCard" class="card hidden">
+            <h2>Deal Proposal</h2>
+            <p class="subtitle">Please review and accept or decline this deal</p>
+
+            <div class="price-box">
+                <div class="price-label">Agreed Price</div>
+                <div class="price-value">
+                    <span id="deal_currency">PKR</span>
+                    <span id="deal_price">—</span>
+                    <span class="price-unit">/unit</span>
+                </div>
+            </div>
+
+            <div class="details">
+                <div class="detail-item">
+                    <div class="label">Commodity</div>
+                    <div class="value" id="deal_commodity">—</div>
+                </div>
+                <div class="detail-item">
+                    <div class="label">Quantity</div>
+                    <div class="value" id="deal_quantity">—</div>
+                </div>
+                <div class="detail-item">
+                    <div class="label">Delivery</div>
+                    <div class="value" id="deal_delivery">—</div>
+                </div>
+                <div class="detail-item">
+                    <div class="label">Buyer</div>
+                    <div class="value" id="deal_buyer">—</div>
+                </div>
+            </div>
+
+            <div id="mandiBox" class="mandi-info hidden">
+                &#x1F4CA; Mandi Rate: <strong id="mandi_rate_val">—</strong>
+                <span id="mandi_diff" style="margin-left: 8px"></span>
+            </div>
+
+            <div class="buyer-info">
+                &#x1F91D; <strong id="buyer_name_display">The buyer</strong> has approved this deal and is awaiting your confirmation.
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-accept" id="btnAccept" onclick="handleApprove()">&#x2705; Accept Deal</button>
+                <button class="btn btn-decline" id="btnDecline" onclick="handleReject()">&#x274C; Decline</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const TOKEN = '__SELLER_TOKEN__';
+        const API_BASE = '/api/v1/negotiations';
+
+        async function init() {
+            try {
+                const res = await fetch(`${API_BASE}/seller-respond/${TOKEN}`);
+                if (!res.ok) {
+                    const err = await res.json();
+                    showError(err.detail || 'Failed to load deal details.');
+                    return;
+                }
+                const data = await res.json();
+
+                if (data.valid === false) {
+                    showResolved(data.message);
+                    return;
+                }
+
+                // Populate the card
+                document.getElementById('deal_currency').textContent = data.currency;
+                document.getElementById('deal_price').textContent =
+                    data.final_price ? data.final_price.toLocaleString() : '—';
+                document.getElementById('deal_commodity').textContent = data.commodity;
+                document.getElementById('deal_quantity').textContent =
+                    `${data.quantity.toLocaleString()} ${data.unit}`;
+                document.getElementById('deal_delivery').textContent =
+                    data.delivery_days ? `${data.delivery_days} days` : '—';
+                document.getElementById('deal_buyer').textContent = data.buyer_name;
+                document.getElementById('buyer_name_display').textContent = data.buyer_name;
+
+                // Mandi comparison
+                if (data.mandi_rate && data.mandi_rate > 0 && data.final_price) {
+                    document.getElementById('mandiBox').classList.remove('hidden');
+                    document.getElementById('mandi_rate_val').textContent =
+                        `${data.currency} ${data.mandi_rate.toLocaleString()}/kg`;
+                    const diff = data.final_price - data.mandi_rate;
+                    const pct = ((diff / data.mandi_rate) * 100).toFixed(1);
+                    const diffEl = document.getElementById('mandi_diff');
+                    if (diff <= 0) {
+                        diffEl.innerHTML = `<span class="mandi-diff-good">${Math.abs(pct)}% below mandi</span>`;
+                    } else {
+                        diffEl.innerHTML = `<span class="mandi-diff-bad">+${pct}% above mandi</span>`;
+                    }
+                }
+
+                // Show the card
+                document.getElementById('loadingState').classList.add('hidden');
+                document.getElementById('approvalCard').classList.remove('hidden');
+
+            } catch (err) {
+                showError('Network error: ' + err.message);
+            }
+        }
+
+        async function handleApprove() {
+            const btn = document.getElementById('btnAccept');
+            const btnDecline = document.getElementById('btnDecline');
+            btn.textContent = 'Processing...';
+            btn.disabled = true;
+            btnDecline.disabled = true;
+
+            try {
+                const res = await fetch(`${API_BASE}/seller-respond/${TOKEN}/approve`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || data.message);
+
+                // Show success
+                document.getElementById('approvalCard').classList.add('hidden');
+                document.getElementById('successTitle').textContent = 'Deal Accepted!';
+                document.getElementById('successMessage').textContent =
+                    data.message || 'A contract has been generated for both parties.';
+                document.getElementById('successState').classList.remove('hidden');
+
+            } catch (err) {
+                alert('Error: ' + err.message);
+                btn.textContent = '\u2705 Accept Deal';
+                btn.disabled = false;
+                btnDecline.disabled = false;
+            }
+        }
+
+        async function handleReject() {
+            if (!confirm('Are you sure you want to decline this deal? This action cannot be undone.')) return;
+
+            const btn = document.getElementById('btnDecline');
+            const btnAccept = document.getElementById('btnAccept');
+            btn.textContent = 'Processing...';
+            btn.disabled = true;
+            btnAccept.disabled = true;
+
+            try {
+                const res = await fetch(`${API_BASE}/seller-respond/${TOKEN}/reject`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || data.message);
+
+                // Show result
+                document.getElementById('approvalCard').classList.add('hidden');
+                const successState = document.getElementById('successState');
+                successState.classList.remove('hidden');
+                successState.classList.remove('success');
+                document.getElementById('successTitle').textContent = 'Deal Declined';
+                document.getElementById('successTitle').style.color = '#ef4444';
+                document.getElementById('successMessage').textContent =
+                    data.message || 'The negotiation has been terminated.';
+
+            } catch (err) {
+                alert('Error: ' + err.message);
+                btn.textContent = '\u274C Decline';
+                btn.disabled = false;
+                btnAccept.disabled = false;
+            }
+        }
+
+        function showError(msg) {
+            document.getElementById('loadingState').classList.add('hidden');
+            document.getElementById('errorMessage').textContent = msg;
+            document.getElementById('errorState').classList.remove('hidden');
+        }
+
+        function showResolved(msg) {
+            document.getElementById('loadingState').classList.add('hidden');
+            document.getElementById('resolvedMessage').textContent = msg;
+            document.getElementById('resolvedState').classList.remove('hidden');
+        }
+
+        init();
+    </script>
+</body>
+</html>
