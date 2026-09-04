@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database.database import get_db
-from app.database.models import Negotiation, NegotiationBatch, Business, NegotiationStatus, User
+from app.database.models import Negotiation, NegotiationBatch, Business, NegotiationStatus, ApprovalMode, User
 from app.security.auth import get_current_user
 from app.agents.schemas import BatchCreate, BatchResponse, BatchListItem, NegotiationResponse
 from app.negotiation.engine import run_full_negotiation
@@ -22,13 +22,15 @@ def _build_neg_response(neg: Negotiation) -> NegotiationResponse:
 
 
 def _build_batch_response(batch: NegotiationBatch) -> BatchResponse:
-    """Build a BatchResponse with negotiations sorted: AGREED first (lowest price), then WALKAWAY."""
-    agreed = sorted(
-        [n for n in batch.negotiations if n.status == "AGREED" and n.final_price],
+    """Build a BatchResponse with negotiations ranked: converged deals (AGREED, SELLER_APPROVAL,
+    HUMAN_APPROVAL) sorted by lowest price first, then WALKAWAY/others."""
+    converged_statuses = ("AGREED", "SELLER_APPROVAL", "HUMAN_APPROVAL")
+    converged = sorted(
+        [n for n in batch.negotiations if n.status in converged_statuses and n.final_price],
         key=lambda n: n.final_price,
     )
-    others = [n for n in batch.negotiations if n.status != "AGREED"]
-    ranked = agreed + others
+    others = [n for n in batch.negotiations if not (n.status in converged_statuses and n.final_price)]
+    ranked = converged + others
 
     return BatchResponse(
         id=batch.id,
@@ -125,7 +127,9 @@ def create_batch(
             seller_strategy="BALANCED",
             seller_max_rounds=data.buyer_max_rounds,
             convergence_mode=data.convergence_mode,
-            approval_mode=data.approval_mode,
+            # Batches always require human approval: buyer compares deals, picks the winner,
+            # then the winning seller confirms via the token link (same flow as single negotiation).
+            approval_mode=ApprovalMode.HUMAN_APPROVAL.value,
             mandi_rate=data.mandi_rate,
             status=NegotiationStatus.CREATED.value,
             batch_id=batch.id,
@@ -147,15 +151,18 @@ def create_batch(
             db.commit()
 
     # ── 5. Determine best deal ──
+    # Converged deals pause at HUMAN_APPROVAL (buyer picks the winner); AGREED may exist
+    # after the winning seller has confirmed via the token link.
     db.refresh(batch)
-    agreed_negs = [n for n in batch.negotiations if n.status == "AGREED" and n.final_price]
-    if agreed_negs:
-        best = min(agreed_negs, key=lambda n: n.final_price)
+    converged_statuses = ("AGREED", "SELLER_APPROVAL", "HUMAN_APPROVAL")
+    converged_negs = [n for n in batch.negotiations if n.status in converged_statuses and n.final_price]
+    if converged_negs:
+        best = min(converged_negs, key=lambda n: n.final_price)
         batch.best_negotiation_id = best.id
         batch.status = "COMPLETED"
     else:
         # No agreement reached with any seller
-        batch.status = "PARTIAL" if any(n.status == "AGREED" for n in batch.negotiations) else "WALKAWAY"
+        batch.status = "WALKAWAY"
 
     db.commit()
     db.refresh(batch)
@@ -178,8 +185,9 @@ def list_batches(
 
     result = []
     for batch in batches:
-        agreed = [n for n in batch.negotiations if n.status == "AGREED" and n.final_price]
-        best_price = min((n.final_price for n in agreed), default=None)
+        converged_statuses = ("AGREED", "SELLER_APPROVAL", "HUMAN_APPROVAL")
+        converged = [n for n in batch.negotiations if n.status in converged_statuses and n.final_price]
+        best_price = min((n.final_price for n in converged), default=None)
         result.append(BatchListItem(
             id=batch.id,
             commodity=batch.commodity,
@@ -237,4 +245,4 @@ def accept_deal(
 
     batch.best_negotiation_id = negotiation_id
     db.commit()
-    return {"status": "accepted", "batch_id": batch_id, "negotiation_id": negotiation_id}
+    return {"status": "accepted", "batch_id": batch_id, "negotiation_id": negotiation_id, "negotiation_status": neg.status}

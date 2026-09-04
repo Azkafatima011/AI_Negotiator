@@ -834,10 +834,10 @@ async function approveCurrentDeal() {
     try {
         const btn = modal.querySelector('.btn-success');
         if (btn) { btn.textContent = '\u23F3 Processing...'; btn.disabled = true; }
-        const result = await API.approveNegotiation(currentNegotiationId);
+        await API.approveNegotiation(currentNegotiationId);
         modal.classList.remove('active');
         if (btn) { btn.textContent = '\u2705 Buyer Approves'; btn.disabled = false; }
-        // Buyer approved — refresh to show seller notification with link
+        // Buyer approved — refresh to show seller notification card with the copyable link
         viewNegotiation(currentNegotiationId);
     } catch (err) {
         alert('Approval failed: ' + err.message);
@@ -865,8 +865,14 @@ async function rejectCurrentDeal() {
     }
 }
 
+// ── Seller Notification (approval link sharing) ──
+
+let _currentSellerWhatsApp = null;
+
 function showSellerNotification(neg) {
     try {
+        _currentSellerWhatsApp = neg.seller_whatsapp || null;
+
         // Seller contact info
         const contactEl = document.getElementById('seller_notif_contact');
         if (contactEl) {
@@ -910,6 +916,22 @@ function copySellerLink() {
             }, 2000);
         }
     });
+}
+
+/** Open WhatsApp Web with the approval link pre-filled — you review and press Send yourself (no API) */
+function sendSellerLinkWhatsApp() {
+    const linkInput = document.getElementById('seller_notif_link');
+    if (!linkInput || !linkInput.value || linkInput.value.startsWith('Link not')) {
+        return alert('No approval link available.');
+    }
+    const message = `Deal proposed on AI Negotiator. Please open the link below to review and accept or decline the deal: ${linkInput.value}`;
+    if (_currentSellerWhatsApp) {
+        const digits = _currentSellerWhatsApp.replace(/[^0-9]/g, '');
+        window.open(`https://wa.me/${digits}?text=${encodeURIComponent(message)}`, '_blank');
+    } else {
+        // No phone on file — copy the link so it can be shared manually
+        copySellerLink();
+    }
 }
 
 // ── Auto-fetch mandi rate when commodity changes ──
@@ -1148,23 +1170,24 @@ async function viewBatch(batchId) {
         document.getElementById('batch_detail_title').textContent =
             `Batch: ${batch.commodity} \u2014 ${batch.quantity.toLocaleString()} ${batch.unit}`;
 
-        // Summary cards
-        const agreedCount = batch.negotiations.filter(n => n.status === 'AGREED').length;
+        // Summary cards (converged = deal reached, awaiting or completed approval)
+        const convergedStatuses = ['AGREED', 'SELLER_APPROVAL', 'HUMAN_APPROVAL'];
+        const dealsCount = batch.negotiations.filter(n => convergedStatuses.includes(n.status)).length;
         const bestNeg = batch.negotiations.find(n => n.id === batch.best_negotiation_id);
         document.getElementById('batch_summary').innerHTML = `
             <div><div class="text-muted" style="font-size:12px">Commodity</div><div style="font-weight:700">${batch.commodity}</div></div>
             <div><div class="text-muted" style="font-size:12px">Quantity</div><div style="font-weight:700">${batch.quantity.toLocaleString()} ${batch.unit}</div></div>
             <div><div class="text-muted" style="font-size:12px">Sellers</div><div style="font-weight:700">${batch.negotiations.length}</div></div>
-            <div><div class="text-muted" style="font-size:12px">Agreements</div><div style="font-weight:700;color:var(--success)">${agreedCount}</div></div>
+            <div><div class="text-muted" style="font-size:12px">Deals</div><div style="font-weight:700;color:var(--success)">${dealsCount}</div></div>
             <div><div class="text-muted" style="font-size:12px">Best Price</div><div style="font-weight:700;color:var(--success)">${bestNeg && bestNeg.final_price ? batch.currency + ' ' + bestNeg.final_price.toLocaleString() : '\u2014'}</div></div>
             <div><div class="text-muted" style="font-size:12px">Status</div><div><span class="badge badge-${batch.status.toLowerCase()}">${batch.status}</span></div></div>
         `;
 
-        // Calculate highest agreed price for savings column
-        const agreedPrices = batch.negotiations
-            .filter(n => n.status === 'AGREED' && n.final_price)
+        // Calculate highest converged price for savings column
+        const convergedPrices = batch.negotiations
+            .filter(n => convergedStatuses.includes(n.status) && n.final_price)
             .map(n => n.final_price);
-        const highestPrice = agreedPrices.length ? Math.max(...agreedPrices) : null;
+        const highestPrice = convergedPrices.length ? Math.max(...convergedPrices) : null;
 
         const tbody = document.getElementById('batchResultsTable');
         tbody.innerHTML = batch.negotiations.map((neg, idx) => {
@@ -1175,14 +1198,25 @@ async function viewBatch(batchId) {
                 : `#${rank}`;
             const finalPrice = neg.final_price ? `${batch.currency} ${neg.final_price.toLocaleString()}` : '\u2014';
             const totalVal   = neg.final_price ? `${batch.currency} ${(neg.final_price * neg.quantity).toLocaleString()}` : '\u2014';
-            const savings    = (neg.status === 'AGREED' && neg.final_price && highestPrice && highestPrice > neg.final_price)
+            const isConverged = convergedStatuses.includes(neg.status);
+            const savings    = (isConverged && neg.final_price && highestPrice && highestPrice > neg.final_price)
                 ? `<span style="color:var(--success);font-weight:600">\u2212 ${batch.currency} ${(highestPrice - neg.final_price).toLocaleString()}</span>`
-                : (neg.status === 'AGREED' ? '\u2014 (best)' : '\u2014');
-            const statusClass = neg.status === 'AGREED' ? 'agreed' : neg.status === 'WALKAWAY' ? 'walkaway' : neg.status === 'HUMAN_APPROVAL' ? 'human_approval' : 'info';
+                : (isConverged ? '\u2014 (best)' : '\u2014');
+            const statusClass = neg.status === 'AGREED' ? 'agreed' : neg.status === 'WALKAWAY' ? 'walkaway' : neg.status === 'HUMAN_APPROVAL' ? 'human_approval' : neg.status === 'SELLER_APPROVAL' ? 'seller_approval' : 'info';
 
             const rowStyle = isBest ? 'background:rgba(0,200,83,0.07);' : '';
 
-            const actions = neg.status === 'AGREED' ? `
+            const actions = neg.status === 'HUMAN_APPROVAL' ? `
+                <button onclick="approveBatchDeal('${batchId}','${neg.id}')" title="Approve this deal and send it to the seller"
+                    style="padding:5px 10px;background:var(--primary);color:#fff;border:none;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;margin-right:4px">\u2705 Approve Deal</button>
+                <button onclick="rejectBatchDeal('${batchId}','${neg.id}')" title="Reject this deal"
+                    style="padding:5px 10px;background:var(--danger);color:#fff;border:none;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer">\u2716 Reject</button>
+            ` : neg.status === 'SELLER_APPROVAL' ? `
+                <button onclick="copyBatchSellerLink('${neg.seller_approval_token || ''}')" title="Copy the seller approval link"
+                    style="padding:5px 10px;background:var(--info);color:#fff;border:none;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;margin-right:4px">\uD83D\uDD17 Seller Link</button>
+                <button onclick="shareBatchSellerLink('${neg.seller_approval_token || ''}','${(neg.seller_whatsapp || '').replace(/[^0-9]/g, '')}')" title="Open WhatsApp Web with the approval link"
+                    style="padding:5px 10px;background:#25D366;color:#fff;border:none;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer">WhatsApp</button>
+            ` : neg.status === 'AGREED' ? `
                 <button onclick="viewContractById('${neg.id}')" style="padding:5px 10px;background:var(--primary);color:#fff;border:none;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;margin-right:4px">Contract</button>
                 <button onclick="batchWhatsApp('${neg.id}','${neg.seller_whatsapp || ''}','${neg.seller_name || ''}')"
                     style="padding:5px 10px;background:#25D366;color:#fff;border:none;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;margin-right:4px">WhatsApp</button>
@@ -1217,6 +1251,50 @@ async function acceptBestDeal(batchId, negId) {
         viewBatch(batchId);  // refresh
     } catch (err) {
         alert('Failed to accept deal: ' + err.message);
+    }
+}
+
+/** Buyer approves one deal inside a batch → the row then shows the seller approval link */
+async function approveBatchDeal(batchId, negId) {
+    try {
+        await API.approveNegotiation(negId);
+        viewBatch(batchId);  // refresh — row now shows SELLER_APPROVAL with link buttons
+    } catch (err) {
+        alert('Approval failed: ' + err.message);
+    }
+}
+
+/** Buyer rejects one deal inside a batch */
+async function rejectBatchDeal(batchId, negId) {
+    if (!confirm('Reject this deal? The negotiation with this seller will be terminated.')) return;
+    try {
+        await API.rejectNegotiation(negId);
+        viewBatch(batchId);  // refresh
+    } catch (err) {
+        alert('Reject failed: ' + err.message);
+    }
+}
+
+/** Copy the seller approval link for a batch row (SELLER_APPROVAL status) */
+function copyBatchSellerLink(token) {
+    if (!token) return alert('No approval token on file for this deal.');
+    const link = `${window.location.origin}/seller-respond/${token}`;
+    navigator.clipboard.writeText(link).then(() => {
+        alert('\u2705 Seller approval link copied:\n\n' + link);
+    });
+}
+
+/** Open WhatsApp Web with the seller approval link pre-filled for a batch row (no API — you press Send) */
+function shareBatchSellerLink(token, phone) {
+    if (!token) return alert('No approval token on file for this deal.');
+    const link = `${window.location.origin}/seller-respond/${token}`;
+    const message = `Deal proposed on AI Negotiator. Please open the link below to review and accept or decline the deal: ${link}`;
+    if (phone) {
+        window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
+    } else {
+        navigator.clipboard.writeText(link).then(() => {
+            alert('\u2705 No WhatsApp number on file for this seller \u2014 link copied instead:\n\n' + link);
+        });
     }
 }
 

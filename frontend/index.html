@@ -218,8 +218,8 @@
 
 <!-- ═══════ SELLER NOTIFICATION (inline, not modal) ═══════ -->
 <div id="sellerNotification" class="hidden" style="background:linear-gradient(135deg,rgba(0,150,255,0.1),rgba(0,100,200,0.05));border:1px solid rgba(0,150,255,0.25);border-radius:14px;padding:24px;margin:20px 0;text-align:center">
-    <h3 style="color:#60a5fa;margin-bottom:6px">📨 Seller Notification Sent</h3>
-    <p style="color:#a1a1aa;font-size:14px;margin-bottom:16px">A WhatsApp/SMS notification has been sent to the seller with a unique approval link.</p>
+    <h3 style="color:#60a5fa;margin-bottom:6px">📨 Awaiting Seller Confirmation</h3>
+    <p style="color:#a1a1aa;font-size:14px;margin-bottom:16px">You approved this deal. Share the unique approval link below with the seller (via WhatsApp or any channel) — the seller accepts or declines without logging in.</p>
 
     <div style="background:#0f1117;border:1px solid #2d3348;border-radius:10px;padding:16px;margin-bottom:16px;text-align:left">
         <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#71717a;margin-bottom:6px">Seller Contact</div>
@@ -228,12 +228,16 @@
 
     <div style="background:#0f1117;border:1px solid #2d3348;border-radius:10px;padding:16px;margin-bottom:16px;text-align:left">
         <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#71717a;margin-bottom:6px">Seller Approval Link</div>
-        <div style="display:flex;gap:8px;align-items:center">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <input type="text" id="seller_notif_link" readonly
-                style="flex:1;background:#1a1f2e;border:1px solid #2d3348;border-radius:6px;padding:8px 12px;color:#60a5fa;font-size:12px;font-family:monospace;outline:none">
+                style="flex:1;min-width:200px;background:#1a1f2e;border:1px solid #2d3348;border-radius:6px;padding:8px 12px;color:#60a5fa;font-size:12px;font-family:monospace;outline:none">
             <button onclick="copySellerLink()" id="copyLinkBtn"
                 style="background:#22c55e;color:white;border:none;border-radius:6px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">
                 📋 Copy
+            </button>
+            <button onclick="sendSellerLinkWhatsApp()" id="sendLinkWhatsAppBtn" title="Opens WhatsApp Web with the link pre-filled — you press Send"
+                style="background:#25D366;color:white;border:none;border-radius:6px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">
+                📱 WhatsApp
             </button>
         </div>
     </div>

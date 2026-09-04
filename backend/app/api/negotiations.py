@@ -4,7 +4,7 @@ Core CRUD + negotiation execution + status monitoring.
 """
 import secrets
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
@@ -427,6 +427,7 @@ def list_messages(
 @router.post("/{negotiation_id}/approve")
 def approve_deal(
     negotiation_id: str,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -452,22 +453,20 @@ def approve_deal(
     )
     db.commit()
 
-    # Build mock notification message with unique seller link
-    seller_link = f"http://localhost:8000/seller-respond/{token}"
-    mock_message = (
-        f"[WhatsApp] Notification sent to {neg.seller_name or 'seller'} "
-        f"({neg.seller_whatsapp or 'N/A'}):\n\n"
-        f"\"Deal proposed: {neg.commodity} - {neg.quantity} {neg.unit} "
-        f"at {neg.currency} {neg.final_price}/unit.\n"
-        f"Reply YES to accept or click: {seller_link}\""
-    )
+    # Build seller link from the request's own base URL (works on any host/port/deployment)
+    base_url = str(request.base_url).rstrip("/")
+    seller_link = f"{base_url}/seller-respond/{token}"
 
     return {
         "status": "SELLER_APPROVAL",
         "final_price": neg.final_price,
         "seller_approval_token": token,
         "seller_link": seller_link,
-        "message": f"Buyer approved at {neg.currency} {neg.final_price}/unit. {mock_message}",
+        "seller_whatsapp": neg.seller_whatsapp,
+        "message": (
+            f"Buyer approved at {neg.currency} {neg.final_price}/unit. "
+            "Share the seller approval link so the seller can accept or decline the deal."
+        ),
     }
 
 
